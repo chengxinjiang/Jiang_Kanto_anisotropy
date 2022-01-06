@@ -53,90 +53,13 @@ def integral_transform(freqVec,cc,dist,spec):
     return np.abs(disp_array)
 
 
-def predict_dispersion(lon,lat):
-    '''
-    1D forward based on the JIVSM model
-
-    PARAMETERS:
-    ----------------
-    lon: float arrray for the targeted longitude
-    lat: flat array for the targetd latitude
-
-    RETURSN:
-    ----------------
-    per: 0 and 1st mode dispersion period
-    c1: rayl wave 0 and 1st mode dispersion
-    c2: love wave 0 and 1st mode dispersion
-    '''
-    # load starting model
-    tpath = '/Users/chengxin/Documents/Harvard/Kanto_basin/scripts_for_plot/database/JIVSM_layers'
-    afiles = sorted(glob.glob(os.path.join(tpath,'layer[123456].dat')))
-    nlay = len(afiles)
-    npts = len(lon)
-
-    # JIVSM model
-    vp = np.array([1.8,2.3,3.0,5.5,5.8,6.4])
-    vs = np.array([0.5,0.9,1.5,3.2,3.4,3.8])
-    rho= np.array([1.95,2.1,2.25,2.65,2.7,2.8])
-    vp = vp[:nlay]
-    vs = vs[:nlay]
-    rho= rho[:nlay]
-
-    # matrix dimensions
-    p1 = 0.5
-    p2 = 7
-    pp = np.arange(p1,p2,0.2)
-
-    # number of modes
-    nmod = 2
-    lay_list = np.zeros(shape=(nlay,npts),dtype=np.float32)
-    lay_ave  = np.zeros(nlay,dtype=np.float32)
-    lay_std  = np.zeros(nlay,dtype=np.float32)
-
-    # loop through files
-    for ii in range(nlay):
-        locs = pd.read_csv(afiles[ii])
-
-        # construct lon, lat and thick for interpolation
-        if ii == 0:
-            tlon = np.unique(list(locs['lon']))
-            tlat = np.unique(list(locs['lat']))
-            tlat = np.flip(tlat,axis=0)
-        thick = list(locs['thick'])
-        thick = np.reshape(thick,(len(tlat),len(tlon)))
-
-        for jj in range(len(lon)):
-            fc = scipy.interpolate.interp2d(tlon,tlat,thick,kind='cubic')
-            lay_list[ii,jj] = fc(lon[jj],lat[jj])
-
-    # make an average
-    for jj in range(nlay):
-        lay_ave[jj] = np.mean(lay_list[jj,:])
-        lay_std[jj] = np.std(lay_list[jj,:])
-
-    # allocate dispersion array
-    rayl = np.zeros(shape=(nmod,len(pp)),dtype=np.float32)
-    love = np.zeros(shape=(nmod,len(pp)),dtype=np.float32)
-
-    for im in range(nmod):
-        rayl[im] = surf96(lay_ave, vp, vs, rho, pp, wave='rayleigh', mode=im+1, velocity='phase', flat_earth=True)
-        love[im] = surf96(lay_ave, vp, vs, rho, pp, wave='love', mode=im+1, velocity='phase', flat_earth=True)
-
-    # remove bad measurements
-
-    return pp,rayl,love
-
 
 #######################################
 ########## PARAMETER SECTION ##########
 #######################################
 
 # absolute path for stacked data
-rootpath = '/Volumes/Seagate/research_Harvard/Kanto_basin/stacked'
-#rfile = '/Users/chengxin/Documents/Harvard/Kanto_basin/inversion/obs/SKMM_rayl.dat'
-#lfile = '/Users/chengxin/Documents/Harvard/Kanto_basin/inversion/obs/SKMM_love.dat'
-#rlocs = pd.read_csv(rfile)
-#llocs = pd.read_csv(lfile)
+rootpath = '/Users/chengxin/Documents/Kanto_basin/stacked'
 
 # loop through each station
 sta_file = 'station.lst'
@@ -179,9 +102,6 @@ for ista in range(16,17):
             sta_lon.append(lon[ii])
             sta_lat.append(lat[ii])
     nsta = len(sta_list)
-
-    # pred dispersion curves
-    #pper,rayc,lovec = predict_dispersion(sta_lon,sta_lat)
 
     # construct station pairs from the found stations
     allfiles = []
@@ -312,15 +232,6 @@ for ista in range(16,17):
         cx=plt.imshow(ampo_new,cmap='jet',interpolation='bicubic',extent=extent,origin='lower',aspect='auto')
         if ccomp.index(path) == 1:
             plt.title('%s with %d pairs in %d km'%(sta[ista],nfiles1,maxdist))
-        #if path=='RR' or path=='ZZ':
-        #    plt.plot(pper,rayc[0],'w--',lw=1)
-        #    tttindx = np.where(rayc[1]>0)[0]
-        #    plt.plot(pper[tttindx],rayc[1,tttindx],'m--',lw=1)
-
-        #else:
-        #    plt.plot(pper,lovec[0],'w--',lw=1)
-        #    tttindx = np.where(lovec[1]>0)[0]
-        #    plt.plot(pper[tttindx],lovec[1,tttindx],'m--',lw=1)
 
         plt.xlabel('period [s]')
         plt.ylabel('phase velocity [km/s]')

@@ -137,7 +137,7 @@ def load_spectrum_array(dpath,sta,dtype,comp,npts):
     spec = np.zeros(shape=(nsta,nsta,Nfft//2),dtype=np.complex64)
 
     # loop through each source station
-    for ii in range(nsta):
+    for ii in range(nsta-1):
         for jj in range(ii+1,nsta):
             tfile1 = os.path.join(dpath,sta[ii]+'/'+str(sta[ii])+'_'+str(sta[jj])+'.h5')
             tfile2 = os.path.join(dpath,sta[jj]+'/'+str(sta[jj])+'_'+str(sta[ii])+'.h5')
@@ -195,10 +195,9 @@ def sum_power(xx,yy,azim,slow,spec,freqVec):
         for jj in range(nsta):
             for kk in range(nsta):
                 temp[jj] += resp[kk]*spec[kk,jj,ii]
-        for jj in range(nsta):
             vector[ii] += temp[jj]*np.conj(resp[jj])
 
-    beam = np.sum(np.real(vector)**2,axis=0)
+    beam = 10*np.log10(np.sum(np.real(vector)**2,axis=0))
     return beam
 
 
@@ -212,21 +211,21 @@ sta_file  = 'station.lst'
 
 # important parameters
 freqmin = 0.1
-freqmax = 1
+freqmax = 1.0
 subarray = True 
 ssta_list = ['E.SKMM']
 rdist = 15
-comp  = 'ZZ'
+comp  = ['ZZ','TT']
 dtype = 'Allstack0linear'
 
 # basic parameters about the CCFs
 dt = 0.1
-lag = 100
+lag = 60
 npts = int(lag/dt)+1
 
 # beamformer parameters
 slowmax = 2.5
-dslow   = 0.01
+dslow   = 0.05
 nslow   = int(np.floor(slowmax/dslow))+1
 slowness = np.linspace(0,slowmax,nslow)
 nazim   = 91
@@ -244,28 +243,51 @@ for ssta in ssta_list:
     num = len(sta)
 
     # load data and spec array
-    data,spec = load_spectrum_array(rootpath,sta,dtype,comp,npts)
+    data1,spec1 = load_spectrum_array(rootpath,sta,dtype,comp[0],npts)
 
     # perform the beamforming
-    beampower = np.zeros(shape=(len(slowness),nazim),dtype=np.float32)
+    beampower1 = np.zeros(shape=(len(slowness),nazim),dtype=np.float32)
 
     for ii in range(nslow):
         slow = slowness[ii]
         for jj in range(nazim):
             azim  = azi_bin[jj]
-            beam = sum_power(xx,yy,azim,slow,spec[:,:,indx],freqVec)
-            beampower[ii,jj] = 10*np.log10(beam)
+            beam = sum_power(xx,yy,azim,slow,spec1[:,:,indx],freqVec)
+            beampower1[ii,jj] = beam
 
     # plot the polar figure
-    fig, ax = plt.subplots(subplot_kw=dict(projection='polar'))
+    fig, (ax1,ax2) = plt.subplots(1,2,subplot_kw=dict(projection='polar'))
     x,y = np.meshgrid(np.radians(azi_bin),slowness)
-    contour_inc = np.linspace(np.amin(beampower),np.amax(beampower),10)
-    cm=ax.contourf(x,y,beampower,cmap='jet',levels=15)
-    ax.set_title('%s %d stations @%4.2f-%4.2f Hz'%(ssta,num,freqmin,freqmax))
-    ax.set_theta_zero_location('N')
-    ax.set_theta_direction(-1)
-    cbar=fig.colorbar(cm, ax=ax, shrink=0.8)
+    contour_inc = np.linspace(np.amin(beampower1),np.amax(beampower1),10)
+    cm=ax1.contourf(x,y,beampower1,cmap='jet',levels=15)
+    ax1.set_title('%s %s @%4.2f-%4.2f Hz'%(ssta,comp[0],freqmin,freqmax))
+    ax1.set_theta_zero_location('N')
+    ax1.set_theta_direction(-1)
+    cbar=fig.colorbar(cm, ax=ax1, shrink=0.4)
     cbar.ax.set_ylabel('power (dB)')
+
+    # load data and spec array
+    data2,spec2 = load_spectrum_array(rootpath,sta,dtype,comp[1],npts)
+
+    # perform the beamforming
+    beampower2 = np.zeros(shape=(len(slowness),nazim),dtype=np.float32)
+
+    for ii in range(nslow):
+        slow = slowness[ii]
+        for jj in range(nazim):
+            azim  = azi_bin[jj]
+            beam = sum_power(xx,yy,azim,slow,spec2[:,:,indx],freqVec)
+            beampower2[ii,jj] = beam
+
+    x,y = np.meshgrid(np.radians(azi_bin),slowness)
+    contour_inc = np.linspace(np.amin(beampower2),np.amax(beampower2),10)
+    cm2=ax2.contourf(x,y,beampower2,cmap='jet',levels=15)
+    ax2.set_title('%s %s @%4.2f-%4.2f Hz'%(ssta,comp[1],freqmin,freqmax))
+    ax2.set_theta_zero_location('N')
+    ax2.set_theta_direction(-1)
+    cbar1=fig.colorbar(cm2, ax=ax2, shrink=0.4)
+    cbar1.ax.set_ylabel('power (dB)')
+    fig.tight_layout()
 
     # save the plot
     if not os.path.isdir(os.path.join(rootpath,'figures')):
@@ -274,6 +296,6 @@ for ssta in ssta_list:
     if not subarray:
         fout = '{0:s}/All_{1:4.2f}_{2:4.2f}_{3:s}.pdf'.format(rootpath+'/figures',freqmin,freqmax,comp)
     else:
-        fout = '{0:s}/figure3_{1:s}_{2:4.2f}_{3:4.2f}_{4:d}km_{5:s}.pdf'.format(rootpath+'/figures',ssta,freqmin,freqmax,rdist,comp)
+        fout = '{0:s}/figure3_{1:s}_{2:4.2f}_{3:4.2f}_{4:d}km_{5:s}.pdf'.format(rootpath+'/figures',ssta,freqmin,freqmax,rdist,comp[0])
     fig.savefig(fout,format='pdf', dpi=300)
     plt.close('all')
