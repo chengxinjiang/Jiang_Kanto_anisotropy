@@ -22,7 +22,7 @@ savefig: set True to save the figures (in pdf format)
 sdir: diresied directory to save the figure (if not provided, save to default dir)
 '''
 
-# data path (make sure )
+# data path (make sure rootpath is modified to your local ones)
 rootpath = '/Users/chengxin/Documents/Kanto_basin/stacked'
 source_list = ['E.SKMM']
 
@@ -139,7 +139,7 @@ for source in source_list:
     # output the plot
     if not os.path.isdir(os.path.join(rootpath,'figures')):
         os.mkdir(os.path.join(rootpath,'figures'))
-    outfname = rootpath+'/figures/{0:s}_{1:4.2f}_{2:4.2f}Hz.pdf'.format(source,fmin,fmax)
+    outfname = rootpath+'/figures/figure4_{0:s}_{1:4.2f}_{2:4.2f}Hz.pdf'.format(source,fmin,fmax)
     fig.tight_layout()
     plt.close()
     fig.savefig(outfname, format='pdf', dpi=400)

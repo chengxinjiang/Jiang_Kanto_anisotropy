@@ -1,14 +1,11 @@
 import os
-import sys
-import glob
-import time
 import scipy
 import obspy
+import pyasdf
 import numpy as np
 import pandas as pd
 from numba import jit
 import matplotlib.pyplot as plt 
-from obspy.signal.filter import bandpass
 from scipy.fftpack.helper import next_fast_len
 
 '''
@@ -21,32 +18,6 @@ Modified at Apr/2020 (ANU):
     1) follow the formula of Harmon et al., GJI (2010) for the beamforming with CCFs
     2) add the functionality of using sub-array data for the beaforming
 '''
-
-def geo2xyz0(lat,lon):
-    '''
-    transform from geographic coordinates to spherical on surface
-
-    PARAMETERS:
-    -----------------
-    lat: latitudes of the grids
-    lon: longitude of the grids
-    '''
-    RR = 6371.0
-    nsta = lat.size
-    # convert to spherical first
-    theta = np.zeros(nsta,dtype=np.float32)
-    phi   = np.zeros(nsta,dtype=np.float32)
-
-    theta = np.pi/2 - np.radians(lat)
-    phi   = np.radians(lon)
-
-    # then to cartersian 
-    xx = np.zeros(nsta,dtype=np.float32)
-    yy = np.zeros(nsta,dtype=np.float32)
-    xx = RR*np.sin(theta)*np.cos(phi)
-    yy = RR*np.sin(theta)*np.sin(phi)
-
-    return xx,yy
 
 def geo2xyz(lat,lon):
     '''
@@ -65,7 +36,7 @@ def geo2xyz(lat,lon):
 
     return xx,yy
 
-def get_station_geometry(dpath,sta_file,comp,flag=False,source=None,rdist=None):
+def get_station_geometry(sta_file,dt,npts,flag=False,source=None,rdist=None):
     '''
     this functions reads station info from the list, finds the relative coordinates
     and read one example waveform data for some basic parameters
@@ -100,17 +71,11 @@ def get_station_geometry(dpath,sta_file,comp,flag=False,source=None,rdist=None):
     # transform the coordinate [cartersian coordinates is needed when array is large]
     xx,yy = geo2xyz(lat,lon)
 
-    # construct station pairs from the found stations
-    allfiles = sorted(glob.glob(os.path.join(data_path,comp+'/*.SAC')))
-    st = obspy.read(allfiles[0])
-    dt = st[0].stats.delta
-    npts = st[0].stats.npts
-
     # frequency infor
     Nfft = int(next_fast_len(npts))
     freqVec = scipy.fftpack.fftfreq(Nfft,d=dt)[:(Nfft//2)]
     
-    return sta,xx,yy,freqVec,npts
+    return sta,xx,yy,freqVec
 
 
 def make_new_stalist(sta,lon,lat,source,rdist):
@@ -144,7 +109,7 @@ def make_new_stalist(sta,lon,lat,source,rdist):
     
     return sta_list,nlat,nlon
 
-def load_spectrum_array(dpath,sta,comp,npts):
+def load_spectrum_array(dpath,sta,dtype,comp,npts):
     '''
     this function finds all waveform data by the source and receveir list following the station.lst
     and loads the data and spectrum into arrays
@@ -174,12 +139,24 @@ def load_spectrum_array(dpath,sta,comp,npts):
     # loop through each source station
     for ii in range(nsta):
         for jj in range(ii+1,nsta):
-            tfile = os.path.join(dpath,comp+'/'+str(sta[ii])+'_'+str(sta[jj])+'_'+comp+'.SAC')
-            if os.path.isfile(tfile):
-                tr = obspy.read(tfile)
-                data[ii,jj] = tr[0].data[:].astype(np.float32)
-                spec[ii,jj] = scipy.fftpack.fft(data[ii,jj],Nfft)[:Nfft//2]
-    
+            tfile1 = os.path.join(dpath,sta[ii]+'/'+str(sta[ii])+'_'+str(sta[jj])+'.h5')
+            tfile2 = os.path.join(dpath,sta[jj]+'/'+str(sta[jj])+'_'+str(sta[ii])+'.h5')
+            if os.path.isfile(tfile1):
+                tfile = tfile1
+            else:
+                tfile = tfile2 
+            
+            # load the ASDF data
+            with pyasdf.ASDFDataSet(tfile,mode='r') as ds:
+                try:
+                    tdata = ds.auxiliary_data[dtype][comp].data[:]
+                    anpts = len(tdata)//2
+                    data[ii,jj] = tdata[anpts:anpts+npts]*0.5+np.flip(tdata[anpts-npts:anpts],axis=0)*0.5
+                    spec[ii,jj] = scipy.fftpack.fft(data[ii,jj],Nfft)[:Nfft//2]
+                except Exception:
+                    print("continue! cannot read %s "%tfile)
+                    continue  
+            
     return data,spec
 
 
@@ -230,40 +207,44 @@ def sum_power(xx,yy,azim,slow,spec,freqVec):
 ############################################
 
 # rootpath for the data and output
-data_path = '//Kanto_basin/stacked/STACK_SAC/temp'
-outdir    = '/Users/chengxin/Documents/Harvard/Kanto_basin/figures_final/beamforming'
-sta_file  = os.path.join(data_path,'../station.lst')
+rootpath = '/Volumes/Seagate/research_Harvard/Kanto_basin/stacked'
+sta_file  = 'station.lst'
 
 # important parameters
 freqmin = 0.1
 freqmax = 1
 subarray = True 
-ssta_list = ['E.ABHM','E.MKJM']
-rdist = 12
+ssta_list = ['E.SKMM']
+rdist = 15
 comp  = 'ZZ'
+dtype = 'Allstack0linear'
+
+# basic parameters about the CCFs
+dt = 0.1
+lag = 100
+npts = int(lag/dt)+1
 
 # beamformer parameters
-slowmax = 3.5
-dslow   = 0.05
+slowmax = 2.5
+dslow   = 0.01
 nslow   = int(np.floor(slowmax/dslow))+1
 slowness = np.linspace(0,slowmax,nslow)
-nazim   = 73
+nazim   = 91
 azi_bin = np.linspace(0,360,nazim)
 
 if not subarray:
     ssta_list = ['all']
 
 for ssta in ssta_list:
-    ffile = open(os.path.join(outdir,'beam_freq.dat'),'w+')
 
     # get station geometry and some useful info
-    sta,xx,yy,freq,npts = get_station_geometry(data_path,sta_file,comp,subarray,ssta,rdist)
+    sta,xx,yy,freq = get_station_geometry(sta_file,dt,npts,subarray,ssta,rdist)
     indx = np.where((freq>=freqmin) & (freq<=freqmax))[0]
     freqVec = freq[indx]
     num = len(sta)
 
     # load data and spec array
-    data,spec = load_spectrum_array(data_path,sta,comp,npts)
+    data,spec = load_spectrum_array(rootpath,sta,dtype,comp,npts)
 
     # perform the beamforming
     beampower = np.zeros(shape=(len(slowness),nazim),dtype=np.float32)
@@ -274,9 +255,6 @@ for ssta in ssta_list:
             azim  = azi_bin[jj]
             beam = sum_power(xx,yy,azim,slow,spec[:,:,indx],freqVec)
             beampower[ii,jj] = 10*np.log10(beam)
-            ffile.write('%6.1f %6.3f %6.2f\n' % (azim,slow,beampower[ii,jj]))
-
-    ffile.close()
 
     # plot the polar figure
     fig, ax = plt.subplots(subplot_kw=dict(projection='polar'))
@@ -288,9 +266,14 @@ for ssta in ssta_list:
     ax.set_theta_direction(-1)
     cbar=fig.colorbar(cm, ax=ax, shrink=0.8)
     cbar.ax.set_ylabel('power (dB)')
+
+    # save the plot
+    if not os.path.isdir(os.path.join(rootpath,'figures')):
+        os.mkdir(os.path.join(rootpath,'figures'))
+        
     if not subarray:
-        fout = '{0:s}/All_{1:4.2f}_{2:4.2f}_{3:s}.pdf'.format(outdir,freqmin,freqmax,comp)
+        fout = '{0:s}/All_{1:4.2f}_{2:4.2f}_{3:s}.pdf'.format(rootpath+'/figures',freqmin,freqmax,comp)
     else:
-        fout = '{0:s}/{1:s}_{2:4.2f}_{3:4.2f}_{4:d}km_{5:s}.pdf'.format(outdir,ssta,freqmin,freqmax,rdist,comp)
+        fout = '{0:s}/figure3_{1:s}_{2:4.2f}_{3:4.2f}_{4:d}km_{5:s}.pdf'.format(rootpath+'/figures',ssta,freqmin,freqmax,rdist,comp)
     fig.savefig(fout,format='pdf', dpi=300)
     plt.close('all')

@@ -132,15 +132,14 @@ def predict_dispersion(lon,lat):
 #######################################
 
 # absolute path for stacked data
-data_path = '/Volumes/Seagate/research_Harvard/Kanto_basin/stacked'
-out_path = '/Users/chengxin/Documents/Harvard/Kanto_basin/scripts_for_plot'
-rfile = '/Users/chengxin/Documents/Harvard/Kanto_basin/inversion/obs/SKMM_rayl.dat'
-lfile = '/Users/chengxin/Documents/Harvard/Kanto_basin/inversion/obs/SKMM_love.dat'
-rlocs = pd.read_csv(rfile)
-llocs = pd.read_csv(lfile)
+rootpath = '/Volumes/Seagate/research_Harvard/Kanto_basin/stacked'
+#rfile = '/Users/chengxin/Documents/Harvard/Kanto_basin/inversion/obs/SKMM_rayl.dat'
+#lfile = '/Users/chengxin/Documents/Harvard/Kanto_basin/inversion/obs/SKMM_love.dat'
+#rlocs = pd.read_csv(rfile)
+#llocs = pd.read_csv(lfile)
 
 # loop through each station
-sta_file = os.path.join(out_path,'database/station.lst')
+sta_file = 'station.lst'
 locs = pd.read_csv(sta_file)
 net  = locs['network']
 sta  = locs['station']
@@ -149,7 +148,6 @@ lat  = locs['latitude']
 
 # different components
 dtype = 'Allstack0linear'
-#ccomp  = ['ZR','ZT','ZZ','RR','RT','RZ','TR','TT','TZ']
 ccomp  = ['ZZ','RR','TT']
 pindx  = [1,0,1,1,0,1,0,2,0]
 onelag = False
@@ -183,14 +181,14 @@ for ista in range(16,17):
     nsta = len(sta_list)
 
     # pred dispersion curves
-    pper,rayc,lovec = predict_dispersion(sta_lon,sta_lat)
+    #pper,rayc,lovec = predict_dispersion(sta_lon,sta_lat)
 
     # construct station pairs from the found stations
     allfiles = []
     for ii in range(nsta-1):
         for jj in range(ii+1,nsta):
-            tfile1 = data_path+'/'+sta_list[ii]+'/'+sta_list[ii]+'_'+sta_list[jj]+'.h5'
-            tfile2 = data_path+'/'+sta_list[ii]+'/'+sta_list[jj]+'_'+sta_list[ii]+'.h5'
+            tfile1 = rootpath+'/'+sta_list[ii]+'/'+sta_list[ii]+'_'+sta_list[jj]+'.h5'
+            tfile2 = rootpath+'/'+sta_list[ii]+'/'+sta_list[jj]+'_'+sta_list[ii]+'.h5'
             if os.path.isfile(tfile1):
                 allfiles.append(tfile1)
             elif os.path.isfile(tfile2):
@@ -299,7 +297,7 @@ for ista in range(16,17):
 
         # save the data into numpy 
         if savenp:
-            tname = data_path+'/figures/fk_analysis_'+str(maxdist)+'km/data_numpy/'+str(sta[ista])+'_'+path+'_'+str(maxdist)+'km_'+str(nfiles1)+'_pairs'
+            tname = rootpath+'/figures/fk_analysis_'+str(maxdist)+'km/data_numpy/'+str(sta[ista])+'_'+path+'_'+str(maxdist)+'km_'+str(nfiles1)+'_pairs'
             np.save(tname,ampo_new)
 
         ##############################################
@@ -314,29 +312,15 @@ for ista in range(16,17):
         cx=plt.imshow(ampo_new,cmap='jet',interpolation='bicubic',extent=extent,origin='lower',aspect='auto')
         if ccomp.index(path) == 1:
             plt.title('%s with %d pairs in %d km'%(sta[ista],nfiles1,maxdist))
-        if path=='RR' or path=='ZZ':
-            plt.plot(pper,rayc[0],'w--',lw=1)
-            tttindx = np.where(rayc[1]>0)[0]
-            plt.plot(pper[tttindx],rayc[1,tttindx],'m--',lw=1)
+        #if path=='RR' or path=='ZZ':
+        #    plt.plot(pper,rayc[0],'w--',lw=1)
+        #    tttindx = np.where(rayc[1]>0)[0]
+        #    plt.plot(pper[tttindx],rayc[1,tttindx],'m--',lw=1)
 
-            ttindx = np.where(rlocs['nmod']==0)[0]
-            tttindx = np.where(rlocs['nmod']==1)[0]
-            if len(ttindx):
-                plt.scatter(rlocs['period'][ttindx],rlocs['vel'][ttindx],c='black',s=1)
-            if len(tttindx):
-                plt.scatter(rlocs['period'][tttindx],rlocs['vel'][tttindx],c='black',s=1)
-
-        else:
-            plt.plot(pper,lovec[0],'w--',lw=1)
-            tttindx = np.where(lovec[1]>0)[0]
-            plt.plot(pper[tttindx],lovec[1,tttindx],'m--',lw=1)
-
-            ttindx = np.where(llocs['nmod']==0)[0]
-            tttindx = np.where(llocs['nmod']==1)[0]
-            if len(ttindx):
-                plt.scatter(llocs['period'][ttindx],llocs['vel'][ttindx],c='black',s=1)
-            if len(tttindx):
-                plt.scatter(llocs['period'][tttindx],llocs['vel'][tttindx],c='black',s=1)  
+        #else:
+        #    plt.plot(pper,lovec[0],'w--',lw=1)
+        #    tttindx = np.where(lovec[1]>0)[0]
+        #    plt.plot(pper[tttindx],lovec[1,tttindx],'m--',lw=1)
 
         plt.xlabel('period [s]')
         plt.ylabel('phase velocity [km/s]')
@@ -347,7 +331,9 @@ for ista in range(16,17):
         plt.tight_layout()
 
     # output figure to pdf files
-    outfname = out_path+'/fig5_dispersion_images/'+str(sta[ista])+'_'+stack_method+'_'+str(maxdist)+'km.pdf'
-    print(outfname)
+    if not os.path.isdir(os.path.join(rootpath,'figures')):
+        os.mkdir(os.path.join(rootpath,'figures'))
+
+    outfname = rootpath+'/figures/figure5_'+str(sta[ista])+'_'+stack_method+'_'+str(maxdist)+'km.pdf'
     plt.savefig(outfname, format='pdf', dpi=300)
     plt.close()
