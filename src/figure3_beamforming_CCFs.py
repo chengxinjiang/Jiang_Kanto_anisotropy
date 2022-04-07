@@ -206,7 +206,7 @@ def sum_power(xx,yy,azim,slow,spec,freqVec):
 ############################################
 
 # rootpath for the data and output
-rootpath = '/Volumes/Seagate/research_Harvard/Kanto_basin/stacked'
+rootpath = '/Volumes/Seagate/Kanto_basin/stacked'
 sta_file  = 'station.lst'
 
 # important parameters
@@ -259,7 +259,7 @@ for ssta in ssta_list:
     fig, (ax1,ax2) = plt.subplots(1,2,subplot_kw=dict(projection='polar'))
     x,y = np.meshgrid(np.radians(azi_bin),slowness)
     contour_inc = np.linspace(np.amin(beampower1),np.amax(beampower1),10)
-    cm=ax1.contourf(x,y,beampower1,cmap='jet',levels=15)
+    cm=ax1.contourf(x,y,beampower1,cmap='jet',levels=13,vmin=18,vmax=31)
     ax1.set_title('%s %s @%4.2f-%4.2f Hz'%(ssta,comp[0],freqmin,freqmax))
     ax1.set_theta_zero_location('N')
     ax1.set_theta_direction(-1)
@@ -281,7 +281,7 @@ for ssta in ssta_list:
 
     x,y = np.meshgrid(np.radians(azi_bin),slowness)
     contour_inc = np.linspace(np.amin(beampower2),np.amax(beampower2),10)
-    cm2=ax2.contourf(x,y,beampower2,cmap='jet',levels=15)
+    cm2=ax2.contourf(x,y,beampower2,cmap='jet',levels=13,vmin=18,vmax=31)
     ax2.set_title('%s %s @%4.2f-%4.2f Hz'%(ssta,comp[1],freqmin,freqmax))
     ax2.set_theta_zero_location('N')
     ax2.set_theta_direction(-1)
@@ -296,6 +296,6 @@ for ssta in ssta_list:
     if not subarray:
         fout = '{0:s}/All_{1:4.2f}_{2:4.2f}_{3:s}.pdf'.format(rootpath+'/figures',freqmin,freqmax,comp)
     else:
-        fout = '{0:s}/figure3_{1:s}_{2:4.2f}_{3:4.2f}_{4:d}km_{5:s}.pdf'.format(rootpath+'/figures',ssta,freqmin,freqmax,rdist,comp[0])
+        fout = '{0:s}/figure3_{1:s}_{2:4.2f}_{3:4.2f}_{4:d}km_{5:s}.pdf'.format(rootpath,ssta,freqmin,freqmax,rdist,comp[0])
     fig.savefig(fout,format='pdf', dpi=300)
     plt.close('all')
