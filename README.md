@@ -7,7 +7,7 @@ Contact Chengxin Jiang (chengxin.jiang1@anu.edu.au) if you have any questions or
 * Description: a python script to make beamforming calculations upon derived cross-correlation functions
 * Inputs: the cross correlation functions between all MeSO-net stations and the station list
 * Usage: python figure3\_beamforming\_CCFs.py
-<img src="figures/figure3.jpg" width="800" height="400">
+<img src="figures/figure3.jpeg" width="800" height="400">
 
 ## script of figure4\_moveout\_matrix.py
 * Description: a python script to reproduce the moveout plot for figure 4
