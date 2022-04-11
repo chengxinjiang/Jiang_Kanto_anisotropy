@@ -1,5 +1,5 @@
 # Scripts to reproduce several important figures for Jiang & Denolle, 2022 (submitted to JGR). 
-This respo contains some python/shell scripts to reproduce several important figures for Jiang & Denolle, 2022. The scripts require the cross-correlation functions and/or the velocity model derived by Jiang & Denolle, 2022. Both files are achieved at [Zenodo](URL) and are publically accessible. Detailed description, usage and input files for each script are provided below. 
+This respository contains several of the python/shell scripts to reproduce several important figures for Jiang & Denolle, 2022. The scripts require having the cross-correlation functions and/or the velocity model derived by Jiang & Denolle, 2022. Both files are achieved at the publicly available archive [Zenodo](URL). Detailed description, usage and input files for each script are provided below. 
 
 Contact Chengxin Jiang (chengxin.jiang1@anu.edu.au) if you have any questions or any bugs to report.  
 
